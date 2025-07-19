@@ -1,7 +1,9 @@
 import json
 import numpy as np
 from config import MODEL_NAME
+from utils import retry
 
+@retry(retries=4, backoff=3)
 def get_query_embedding(question: str, co) -> np.ndarray:
     """Generates an embedding for a given query string."""
     resp = co.embed(

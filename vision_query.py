@@ -2,6 +2,7 @@ import os
 import base64
 import numpy as np
 from PIL import Image
+from openai import OpenAI
 from embeddings import get_query_embedding, load_image_embeddings
 
 def search_image_by_question(question: str, co, max_size=800,
