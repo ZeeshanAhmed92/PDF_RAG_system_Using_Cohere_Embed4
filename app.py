@@ -24,7 +24,7 @@ IMG_FOLDER.parent.mkdir(parents=True, exist_ok=True)
 
 load_dotenv()
 co = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY1"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 pdf_hash_path = os.path.join(HASHES_FOLDER, PDF_HASH_FILE)
 img_emb_path = os.path.join(HASHES_FOLDER, IMG_EMB_FILE)
