@@ -1,4 +1,5 @@
 import os
+import shutil
 import base64
 import time
 import cohere
@@ -8,7 +9,7 @@ from pathlib import Path
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
-from utils import load_json, hash_file
+from utils import load_json, hash_file, save_json
 import streamlit.components.v1 as components
 from pdf_processing_embedding import process_pdfs_and_embed_pages
 from vision_query import search_image_by_question, answer_question_about_images
@@ -23,14 +24,12 @@ IMG_FOLDER.parent.mkdir(parents=True, exist_ok=True)
 
 load_dotenv()
 co = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY1"))
 
 pdf_hash_path = os.path.join(HASHES_FOLDER, PDF_HASH_FILE)
 img_emb_path = os.path.join(HASHES_FOLDER, IMG_EMB_FILE)
 
 file_hashes = load_json(pdf_hash_path)
-
-
 
 
 # Initialize or restore session
@@ -91,30 +90,44 @@ st.sidebar.markdown(
     "<span style='font-weight: bold; color: #000840;'>Choose a PDF file</span>",
     unsafe_allow_html=True
 )
+
 # Hide default label
 uploaded_file = st.sidebar.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed")
 
 if uploaded_file:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(uploaded_file.read())
-        temp_path = Path(tmp.name)
+    # ✅ Save uploaded file to a temporary location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        temp_path = Path(tmp_file.name)
 
-        filename = uploaded_file.name
-        file_hash = hash_file(temp_path)
+    filename = uploaded_file.name
+    file_stem = Path(filename).stem
+    file_hash = hash_file(temp_path)
 
-        if file_hashes.get(filename) == file_hash:
-           st.sidebar.success("✅ Already processed.")
-        else:
-            st.sidebar.info("🔄 Processing...")
+    if file_hashes.get(file_stem) == file_hash:
+        st.sidebar.success("✅ Already processed.")
+        temp_path.unlink(missing_ok=True)  # cleanup temp file
+    else:
+        st.sidebar.info("🔄 Processing...")
         try:
-            process_pdfs_and_embed_pages(co)
-            file_hashes[filename] = file_hash
+            # ✅ Move to permanent storage
+            final_path = PDF_FOLDER / filename
+            shutil.move(str(temp_path), str(final_path))  # ✅ cross-device move
+
+            # ✅ Process the uploaded file
+            process_pdfs_and_embed_pages(co, specific_pdf_path=final_path)
+
+            # ✅ Store hash using the filename
+            file_hashes[file_stem] = file_hash
+            save_json(pdf_hash_path, file_hashes)
 
             st.sidebar.success("✅ File processed.")
         except Exception as e:
             st.sidebar.error(f"❌ Failed: {e}")
         finally:
-            temp_path.unlink()
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)  # just in case move failed
+
 
 # RAG Q&A
 # ✅ Styled subheader
@@ -356,14 +369,71 @@ for pair in reversed(st.session_state.chat_history):
 components.html(chat_html + "</div>", height=520, scrolling=False)
 
 # 📸 Display images in a separate Streamlit container
-st.markdown("### 🖼️ Relevant Images", unsafe_allow_html=True)
+st.markdown("""
+    <h3 style='font-weight: 700; color: #ffffff;'>
+        🖼️ Relevant Images
+    </h3>
+""", unsafe_allow_html=True)
 
+# Begin scrollable image container
+image_html = """
+<style>
+.image-scroll-box {
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.7);
+    backdrop-filter: blur(4px);
+    border: 1px solid #ccc;
+    margin-top: 1rem;
+}
+
+.image-block {
+    margin-bottom: 24px;
+}
+
+.image-title {
+    font-weight: 700;
+    color: #000840;
+    margin-bottom: 8px;
+    font-size: 1rem;
+}
+
+.image-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.image-grid img {
+    height: 160px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid #28adfe;
+}
+</style>
+
+<div class="image-scroll-box">
+"""
+
+# Build HTML for each image group
 for idx, pair in enumerate(reversed(st.session_state.chat_history)):
     if pair.get("images"):
-        with st.container():
-            st.markdown(f"<h5 style='color:#000840;'>🔹 For Q{len(st.session_state.chat_history)-idx}: {pair['question']}</h5>", unsafe_allow_html=True)
+        image_html += f"""
+        <div class="image-block">
+            <div class="image-title">🔹 Q{len(st.session_state.chat_history)-idx}: {pair['question']}</div>
+            <div class="image-grid">
+        """
+        for img_path in pair["images"]:
+            if os.path.exists(img_path):
+                with open(img_path, "rb") as img_file:
+                    img_base64 = base64.b64encode(img_file.read()).decode()
+                    image_html += f'<img src="data:image/png;base64,{img_base64}" />'
 
-            img_columns = st.columns(min(3, len(pair["images"])))
-            for col, image_path in zip(img_columns, pair["images"]):
-                if os.path.exists(image_path):
-                    col.image(image_path, use_column_width="auto", caption=os.path.basename(image_path))
+        image_html += "</div></div>"
+
+image_html += "</div>"
+
+# Render images inside scrollable container
+components.html(image_html, height=520, scrolling=False)

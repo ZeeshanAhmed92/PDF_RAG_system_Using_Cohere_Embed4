@@ -6,3 +6,4 @@ streamlit
 cohere
 openai
 poppler-utils
+pdf2image

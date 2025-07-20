@@ -20,11 +20,12 @@ def hash_file(filepath: str) -> str:
 
 
 def base64_from_image(img_path: str) -> str:
-    with open(img_path, "rb") as f:
+    img_path = Path(img_path)
+    with img_path.open("rb") as f:
         b64_data = base64.b64encode(f.read()).decode("utf-8")
-    mime_type, _ = mimetypes.guess_type(img_path)
+    mime_type, _ = mimetypes.guess_type(img_path.name)
     if not mime_type:
-        mime_type = "image/png"  # fallback
+        mime_type = "image/png"
     return f"data:{mime_type};base64,{b64_data}"
 
 
@@ -43,21 +44,29 @@ def embed_image(co, img_path: str):
 
 
 def convert_pdf_to_images(pdf_path: str, output_dir: str) -> list:
-    pdf_name = Path(pdf_path).stem
-    images = convert_from_path(pdf_path, dpi=200)
+    pdf_path = Path(pdf_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    pdf_name = pdf_path.stem
+    images = convert_from_path(str(pdf_path), dpi=200)
     image_paths = []
 
     for i, img in enumerate(images):
-        img_filename = f"{pdf_name}_page{i + 1}.png"
-        img_path = os.path.join(output_dir, img_filename)
-        img.save(img_path, "PNG")
-        image_paths.append(img_path)
+        img_filename = output_dir / f"{pdf_name}_page{i + 1}.png"
+        img.save(img_filename, "PNG")
+        image_paths.append(str(img_filename))
 
     return image_paths
 
 
+
 def load_json(path: str) -> dict:
-    return json.load(open(path)) if os.path.exists(path) else {}
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r") as f:
+        return json.load(f)
+
 
 
 def save_json(path: str, data: dict):
