@@ -8,3 +8,4 @@ openai
 poppler-utils
 pdf2image
 python-dotenv
+faiss-cpu

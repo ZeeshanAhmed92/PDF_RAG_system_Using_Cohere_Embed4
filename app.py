@@ -12,11 +12,10 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from utils import load_json, hash_file, save_json
 import streamlit.components.v1 as components
-from faiss_utils import load_faiss_index, save_faiss_index, add_embedding
 from pdf_processing_embedding import process_pdfs_and_embed_pages
 from vision_query import search_image_by_question, answer_question_about_images
 from chat_history import generate_session_id, save_chat_history, load_chat_history, CHAT_DATA_DIR
-from config import HASHES_FOLDER, PDF_HASH_FILE, PDF_FOLDER, IMG_FOLDER, co, FAISS_INDEX_PATH, FILENAME_MAP_PATH
+from config import HASHES_FOLDER, PDF_HASH_FILE, PDF_FOLDER, IMG_FOLDER, co
 
 # Ensure paths exist
 HASHES_FOLDER.mkdir(parents=True, exist_ok=True)
