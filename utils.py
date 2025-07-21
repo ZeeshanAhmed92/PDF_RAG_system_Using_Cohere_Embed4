@@ -29,7 +29,6 @@ def base64_from_image(img_path: str) -> str:
     return f"data:{mime_type};base64,{b64_data}"
 
 
-
 def embed_image(co, img_path: str):
     api_input_document = {
         "content": [{"type": "image", "image": base64_from_image(img_path)}]
@@ -60,13 +59,11 @@ def convert_pdf_to_images(pdf_path: str, output_dir: str) -> list:
     return image_paths
 
 
-
 def load_json(path: str) -> dict:
     if not os.path.exists(path):
         return {}
     with open(path, "r") as f:
         return json.load(f)
-
 
 
 def save_json(path: str, data: dict):

@@ -1,4 +1,5 @@
 import os
+import traceback
 import shutil
 import base64
 import time
@@ -11,10 +12,11 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from utils import load_json, hash_file, save_json
 import streamlit.components.v1 as components
+from faiss_utils import load_faiss_index, save_faiss_index, add_embedding
 from pdf_processing_embedding import process_pdfs_and_embed_pages
 from vision_query import search_image_by_question, answer_question_about_images
 from chat_history import generate_session_id, save_chat_history, load_chat_history, CHAT_DATA_DIR
-from config import HASHES_FOLDER, PDF_HASH_FILE, IMG_EMB_FILE, PDF_FOLDER, IMG_FOLDER, co
+from config import HASHES_FOLDER, PDF_HASH_FILE, PDF_FOLDER, IMG_FOLDER, co, FAISS_INDEX_PATH, FILENAME_MAP_PATH
 
 # Ensure paths exist
 HASHES_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -27,8 +29,6 @@ co = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 pdf_hash_path = os.path.join(HASHES_FOLDER, PDF_HASH_FILE)
-img_emb_path = os.path.join(HASHES_FOLDER, IMG_EMB_FILE)
-
 file_hashes = load_json(pdf_hash_path)
 
 
@@ -95,38 +95,47 @@ st.sidebar.markdown(
 uploaded_file = st.sidebar.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed")
 
 if uploaded_file:
-    # ✅ Save uploaded file to a temporary location
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-        tmp_file.write(uploaded_file.read())
-        temp_path = Path(tmp_file.name)
+    try:
+        # ✅ Save uploaded file to a temp location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_file.write(uploaded_file.read())
+            temp_path = Path(tmp_file.name)
 
-    filename = uploaded_file.name
-    file_stem = Path(filename).stem
-    file_hash = hash_file(temp_path)
+        # ✅ Check file size
+        if temp_path.stat().st_size < 1000:
+            st.sidebar.error("❌ Uploaded file is too small or corrupted.")
+            temp_path.unlink(missing_ok=True)
+        else:
+            filename = uploaded_file.name
+            file_stem = Path(filename).stem
+            file_hash = hash_file(temp_path)
 
-    if file_hashes.get(file_stem) == file_hash:
-        st.sidebar.success("✅ Already processed.")
-        temp_path.unlink(missing_ok=True)  # cleanup temp file
-    else:
-        st.sidebar.info("🔄 Processing...")
-        try:
-            # ✅ Move to permanent storage
-            final_path = PDF_FOLDER / filename
-            shutil.move(str(temp_path), str(final_path))  # ✅ cross-device move
+            if file_hashes.get(file_stem) == file_hash:
+                st.sidebar.success("✅ Already processed.")
+                temp_path.unlink(missing_ok=True)
+            else:
+                st.sidebar.info("🔄 Processing...")
 
-            # ✅ Process the uploaded file
-            process_pdfs_and_embed_pages(co, specific_pdf_path=final_path)
+                # ✅ Move to final path
+                final_path = PDF_FOLDER / filename
+                shutil.move(str(temp_path), str(final_path))
 
-            # ✅ Store hash using the filename
-            file_hashes[file_stem] = file_hash
-            save_json(pdf_hash_path, file_hashes)
+                # ✅ Process PDF
+                process_pdfs_and_embed_pages(co, specific_pdf_path=final_path)
 
-            st.sidebar.success("✅ File processed.")
-        except Exception as e:
-            st.sidebar.error(f"❌ Failed: {e}")
-        finally:
-            if temp_path.exists():
-                temp_path.unlink(missing_ok=True)  # just in case move failed
+                # ✅ Save hash
+                file_hashes[file_stem] = file_hash
+                save_json(pdf_hash_path, file_hashes)
+
+                st.sidebar.success("✅ File processed.")
+
+    except Exception as e:
+        st.sidebar.error(f"❌ Failed: {e}")
+        st.sidebar.code(traceback.format_exc(), language="python")
+
+    finally:
+        if temp_path.exists():
+            temp_path.unlink(missing_ok=True)
 
 
 # RAG Q&A
@@ -241,27 +250,28 @@ st.markdown("""
 # Button handler
 if question and st.button("💬 Get Answer"):
     with st.container():
-        spinner_html = """
-        <div class="custom-spinner">
-            <div class="lds-dual-ring"></div>
-            <div class="thinking-text">Thinking...</div>
-        </div>
-        """
+        spinner_html = """<div class="custom-spinner"><div class="lds-dual-ring"></div><div class="thinking-text">Thinking...</div></div>"""
         spinner_slot = st.empty()
         spinner_slot.markdown(spinner_html, unsafe_allow_html=True)
 
         try:
             img_paths = search_image_by_question(question, co)
+
+            # ✅ Ensure it's a list
+            if not isinstance(img_paths, list):
+                raise TypeError(f"Expected list of image paths, got: {type(img_paths)} → {img_paths}")
+
             answer = answer_question_about_images(question, img_paths, client)
 
-            # Add to session + save to disk
+            # Store to session
             st.session_state.chat_history.append({
                 "question": question,
                 "answer": answer,
-                "images" : img_paths})
+                "images": img_paths
+            })
             save_chat_history(st.session_state.chat_history, current_chat_path)
-
             spinner_slot.empty()
+
         except Exception as e:
             spinner_slot.empty()
             st.error(f"❌ Error: {str(e)}")
@@ -375,11 +385,11 @@ st.markdown("""
     </h3>
 """, unsafe_allow_html=True)
 
-# Begin scrollable image container
+# Build HTML/CSS/JS content
 image_html = """
 <style>
 .image-scroll-box {
-    max-height: 500px;
+    max-height: 580px;
     overflow-y: auto;
     padding: 12px;
     border-radius: 12px;
@@ -403,21 +413,81 @@ image_html = """
 .image-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 20px;
 }
 
-.image-grid img {
-    height: 160px;
+.image-card {
+    text-align: center;
+    width: 200px;
+    word-break: break-word;
+}
+
+.image-card img {
+    height: 240px;
+    width: 100%;
     border-radius: 10px;
     object-fit: cover;
     border: 2px solid #28adfe;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.image-card img:hover {
+    transform: scale(1.05);
+}
+
+.image-name {
+    font-size: 0.95rem;
+    margin-top: 8px;
+    color: #000840;
+    font-weight: 600;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 999;
+    padding-top: 40px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.8);
+}
+
+.modal-content {
+    margin: auto;
+    display: block;
+    max-width: 90%;
+    max-height: 90%;
+    border: 4px solid white;
+    border-radius: 12px;
+}
+
+.close {
+    position: fixed;
+    top: 20px;
+    right: 40px;
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 1000;
 }
 </style>
+
+<!-- Modal Structure -->
+<div id="imageModal" class="modal">
+    <span class="close" onclick="document.getElementById('imageModal').style.display='none'">&times;</span>
+    <img class="modal-content" id="modalImage">
+</div>
 
 <div class="image-scroll-box">
 """
 
-# Build HTML for each image group
+# Build image grid HTML
 for idx, pair in enumerate(reversed(st.session_state.chat_history)):
     if pair.get("images"):
         image_html += f"""
@@ -427,13 +497,32 @@ for idx, pair in enumerate(reversed(st.session_state.chat_history)):
         """
         for img_path in pair["images"]:
             if os.path.exists(img_path):
+                img_name = os.path.basename(img_path)
                 with open(img_path, "rb") as img_file:
                     img_base64 = base64.b64encode(img_file.read()).decode()
-                    image_html += f'<img src="data:image/png;base64,{img_base64}" />'
+                    image_html += f"""
+                    <div class="image-card">
+                        <img src="data:image/png;base64,{img_base64}" onclick="openModal(this.src)">
+                        <div class="image-name">{img_name}</div>
+                    </div>
+                    """
 
         image_html += "</div></div>"
 
 image_html += "</div>"
 
-# Render images inside scrollable container
-components.html(image_html, height=520, scrolling=False)
+# JavaScript to open modal
+image_html += """
+<script>
+function openModal(src) {
+    var modal = document.getElementById("imageModal");
+    var modalImg = document.getElementById("modalImage");
+    modal.style.display = "block";
+    modalImg.src = src;
+}
+</script>
+"""
+
+# Show final HTML with modal
+components.html(image_html, height=620, scrolling=False)
+

@@ -10,7 +10,8 @@ PDF_FOLDER = Path("source_docs")
 IMG_FOLDER = Path("images")
 HASHES_FOLDER = Path("hashes")
 PDF_HASH_FILE = "pdf_hashes.json"
-IMG_EMB_FILE = "image_embeddings.json"
+FAISS_INDEX_PATH = Path("store/image_index.faiss")  # for FAISS index
+FILENAME_MAP_PATH = Path("store/image_filenames.pkl")  # for image path -> index mapping
 MODEL_NAME = "embed-v4.0"
 
 os.makedirs(PDF_FOLDER, exist_ok=True)

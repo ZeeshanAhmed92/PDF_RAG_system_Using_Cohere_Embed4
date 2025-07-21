@@ -2,40 +2,27 @@ import os
 import base64
 import numpy as np
 from PIL import Image
+from pathlib import Path
 from openai import OpenAI
-from embeddings import get_query_embedding, load_image_embeddings
+from utils import embed_image
+from faiss_utils import load_faiss_index, normalize
 
-def search_image_by_question(question: str, co, max_size=800,
-                             embeddings_path="hashes/image_embeddings.json",
-                             image_folder="images",
-                             n_results=3) -> list:
-    """
-    Embeds the query, searches for the top-N most similar image pages,
-    and returns the matched image paths.
-    """
-    # Step 1: Get query embedding
-    query_emb = get_query_embedding(question, co)
+def search_image_by_question(question, co, top_k=4):
+    # Embed the question correctly
+    response = co.embed(
+        texts=[question],
+        input_type="search_query",
+        model="embed-v4.0"
+    )
+    query_emb = response.embeddings.float[0]  # ✅ Correct access
 
-    # Step 2: Load embeddings and filenames
-    embeddings, filenames = load_image_embeddings(embeddings_path)
-
-    # Step 3: Compute cosine similarity (dot product for normalized vectors)
-    scores = np.dot(query_emb, embeddings.T)
-    top_indices = np.argsort(scores)[::-1][:n_results]
-
-    matched_paths = []
-    for idx in top_indices:
-        img_path = os.path.join(image_folder, filenames[idx])
-
-        # Display image (optional)
-        img = Image.open(img_path)
-        img.thumbnail((max_size, max_size))
-        img.show()
-
-        matched_paths.append(img_path)
-
+    index, filenames = load_faiss_index()
+    norm_query = normalize(np.array(query_emb)).astype("float32")
+    
+    D, I = index.search(norm_query[np.newaxis, :], top_k)
+    matched_paths = [str(Path("images") / filenames[i]) for i in I[0] if i < len(filenames)]
+    print("📂 matched_paths:", matched_paths)
     return matched_paths
-
 
 def encode_image_to_base64(img_path: str) -> str:
     """Encodes an image to base64 for embedding in a prompt."""
