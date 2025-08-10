@@ -321,6 +321,7 @@ bot_icon = get_image_base64("assistant.png")
 chat_html = """
 <style>
 .scroll-box {
+    width: 800px;
     max-height: 500px;
     overflow-y: auto;
     padding: 12px;
@@ -439,7 +440,7 @@ image_html = """
 
 .image-card {
     text-align: center;
-    width: 200px;
+    width: 500px;
     word-break: break-word;
 }
 
