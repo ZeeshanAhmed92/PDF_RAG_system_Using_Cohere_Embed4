@@ -33,19 +33,9 @@ def encode_image_to_base64(img_path: str) -> str:
 
 
 def answer_question_about_images(question: str, matched_paths: list, client: OpenAI,
-                                 model="gpt-4.1-mini", verbose=True) -> str:
+                                 model="gpt-4.1-mini", verbose=True, context_cache: list = None) -> str:
     """
-    Sends a multimodal prompt (text + multiple images) to the LLM and returns the answer.
-
-    Parameters:
-    - question (str): User query
-    - matched_paths (list): List of local image paths
-    - client: OpenAI or AzureOpenAI client
-    - model (str): Model to use (e.g., gpt-4.1-mini, gpt-4o)
-    - verbose (bool): Whether to print the response
-
-    Returns:
-    - response text
+    Sends a multimodal prompt (text + multiple images + recent context) to the LLM and returns the answer.
     """
     try:
         # Encode each image to base64 and build image_url blocks
@@ -54,8 +44,23 @@ def answer_question_about_images(question: str, matched_paths: list, client: Ope
             b64 = encode_image_to_base64(img_path)
             image_contents.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}})
 
-        # Combine the text question and the images
-        message_content = [{"type": "text", "text": f"Answer clearly: {question}"}] + image_contents
+        # 🧠 Build context from previous Q&A
+        context_text = ""
+        if context_cache:
+            for i, item in enumerate(context_cache[-4:]):
+                context_text += f"Previous Q{i+1}: {item['question']}\n"
+                context_text += f"Answer: {item['answer']}\n\n"
+
+        # 📝 Build prompt with context + current question
+        prompt_text = f"""
+You are a helpful assistant answering questions about World Bank trust fund reports based on images and prior discussion.
+
+{f"Recent context:\n{context_text}" if context_text else ""}
+Now answer this question: {question}
+""".strip()
+
+        # 👤 Build message content
+        message_content = [{"type": "text", "text": prompt_text}] + image_contents
 
         response = client.chat.completions.create(
             model=model,
@@ -75,3 +80,4 @@ def answer_question_about_images(question: str, matched_paths: list, client: Ope
     except Exception as e:
         print(f"❌ Error processing images or getting response: {e}")
         return "Error occurred during processing."
+

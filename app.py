@@ -32,6 +32,11 @@ file_hashes = load_json(pdf_hash_path)
 
 
 # Initialize or restore session
+# Initialize context cache for last 3–4 queries
+if "context_cache" not in st.session_state:
+    st.session_state.context_cache = []
+
+
 if "chat_id" not in st.session_state:
     st.session_state.chat_id = generate_session_id()
 
@@ -260,7 +265,13 @@ if question and st.button("💬 Get Answer"):
             if not isinstance(img_paths, list):
                 raise TypeError(f"Expected list of image paths, got: {type(img_paths)} → {img_paths}")
 
-            answer = answer_question_about_images(question, img_paths, client)
+            answer = answer_question_about_images(
+                        question=question,
+                        matched_paths=img_paths,
+                        client=client,
+                        context_cache=st.session_state.context_cache  # ✅ new context param
+                    )
+
 
             # Store to session
             st.session_state.chat_history.append({
@@ -269,6 +280,16 @@ if question and st.button("💬 Get Answer"):
                 "images": img_paths
             })
             save_chat_history(st.session_state.chat_history, current_chat_path)
+            
+            # Update sliding context cache (keep last 3–4)
+            st.session_state.context_cache.append({
+                "question": question,
+                "answer": answer,
+                "images": img_paths
+            })
+            if len(st.session_state.context_cache) > 4:
+                st.session_state.context_cache.pop(0)
+
             spinner_slot.empty()
 
         except Exception as e:
@@ -285,6 +306,7 @@ if st.sidebar.button("🆕 Start New Chat"):
     # Reset session
     st.session_state.chat_id = generate_session_id()
     st.session_state.chat_history = []
+    st.session_state.context_cache = []  # ✅ Clear cache
 
     st.rerun()
 
