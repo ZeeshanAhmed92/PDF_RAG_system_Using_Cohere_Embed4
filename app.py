@@ -319,64 +319,54 @@ bot_icon = get_image_base64("assistant.png")
 
 # Build chat HTML dynamically
 chat_html = """
-<style>
-.scroll-box {
-    width: 800px;
-    max-height: 500px;
-    overflow-y: auto;
-    padding: 12px;
-    border-radius: 12px;
-    background-color: rgba(255,255,255,0.7);
-    backdrop-filter: blur(4px);
-    border: 1px solid #ccc;
-    margin-top: 1rem;
-}
-
-.chat-message {
-    display: flex;
-    margin-bottom: 12px;
-    align-items: flex-start;
-}
-
-.chat-message.user {
-    justify-content: flex-end;
-}
-
-.chat-message.bot {
-    justify-content: flex-start;
-}
-
-.avatar {
-    width: 32px;
-    height: 32px;
-    margin: 0 8px;
-    border-radius: 50%;
-}
-
-.bubble {
-    padding: 12px 16px;
-    border-radius: 18px;
-    max-width: 70%;
-    font-size: 0.95rem;
-    line-height: 1.4;
-    word-wrap: break-word;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.bot .bubble {
-    background-color: white;
-    color: #000;
-    border-top-left-radius: 4px;
-}
-
-.user .bubble {
-    background-color: #d0e8ff;
-    color: #000840;
-    border-top-right-radius: 4px;
-}
-</style>
-
-<div class="scroll-box">
+<div style='display: flex; justify-content: center;'>
+    <div style='max-width: 1100px; width: 100%;'>
+        <style>
+        .scroll-box {
+            width: 100%;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 12px;
+            border-radius: 12px;
+            background-color: rgba(255,255,255,0.7);
+            backdrop-filter: blur(4px);
+            border: 1px solid #ccc;
+            margin-top: 1rem;
+        }
+        .chat-message {
+            display: flex;
+            margin-bottom: 12px;
+            align-items: flex-start;
+        }
+        .chat-message.user { justify-content: flex-end; }
+        .chat-message.bot { justify-content: flex-start; }
+        .avatar {
+            width: 32px;
+            height: 32px;
+            margin: 0 8px;
+            border-radius: 50%;
+        }
+        .bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .bot .bubble {
+            background-color: white;
+            color: #000;
+            border-top-left-radius: 4px;
+        }
+        .user .bubble {
+            background-color: #d0e8ff;
+            color: #000840;
+            border-top-right-radius: 4px;
+        }
+        </style>
+        <div class="scroll-box">
 """
 
 # Build chat HTML
@@ -409,104 +399,107 @@ st.markdown("""
 
 # Build HTML/CSS/JS content
 image_html = """
-<style>
-.image-scroll-box {
-    max-height: 580px;
-    overflow-y: auto;
-    padding: 12px;
-    border-radius: 12px;
-    background-color: rgba(255,255,255,0.7);
-    backdrop-filter: blur(4px);
-    border: 1px solid #ccc;
-    margin-top: 1rem;
-}
+<div style='display: flex; justify-content: center;'>
+    <div style='max-width: 1100px; width: 100%;'>
+        <style>
+        .image-scroll-box {
+            width: 100%;
+            max-height: 580px;
+            overflow-y: auto;
+            padding: 12px;
+            border-radius: 12px;
+            background-color: rgba(255,255,255,0.7);
+            backdrop-filter: blur(4px);
+            border: 1px solid #ccc;
+            margin-top: 1rem;
+        }
 
-.image-block {
-    margin-bottom: 24px;
-}
+        .image-block {
+            margin-bottom: 24px;
+        }
 
-.image-title {
-    font-weight: 700;
-    color: #000840;
-    margin-bottom: 8px;
-    font-size: 1rem;
-}
+        .image-title {
+            font-weight: 700;
+            color: #000840;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
 
-.image-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-}
+        .image-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
 
-.image-card {
-    text-align: center;
-    width: 500px;
-    word-break: break-word;
-}
+        .image-card {
+            text-align: center;
+            width: 500px;
+            word-break: break-word;
+        }
 
-.image-card img {
-    height: 240px;
-    width: 100%;
-    border-radius: 10px;
-    object-fit: cover;
-    border: 2px solid #28adfe;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
+        .image-card img {
+            height: 240px;
+            width: 100%;
+            border-radius: 10px;
+            object-fit: cover;
+            border: 2px solid #28adfe;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
 
-.image-card img:hover {
-    transform: scale(1.05);
-}
+        .image-card img:hover {
+            transform: scale(1.05);
+        }
 
-.image-name {
-    font-size: 0.95rem;
-    margin-top: 8px;
-    color: #000840;
-    font-weight: 600;
-}
+        .image-name {
+            font-size: 0.95rem;
+            margin-top: 8px;
+            color: #000840;
+            font-weight: 600;
+        }
 
-/* Modal Styles */
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 999;
-    padding-top: 40px;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.8);
-}
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            padding-top: 40px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+        }
 
-.modal-content {
-    margin: auto;
-    display: block;
-    max-width: 90%;
-    max-height: 90%;
-    border: 4px solid white;
-    border-radius: 12px;
-}
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            border: 4px solid white;
+            border-radius: 12px;
+        }
 
-.close {
-    position: fixed;
-    top: 20px;
-    right: 40px;
-    color: white;
-    font-size: 40px;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 1000;
-}
-</style>
+        .close {
+            position: fixed;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        </style>
 
-<!-- Modal Structure -->
-<div id="imageModal" class="modal">
-    <span class="close" onclick="document.getElementById('imageModal').style.display='none'">&times;</span>
-    <img class="modal-content" id="modalImage">
-</div>
+        <!-- Modal Structure -->
+        <div id="imageModal" class="modal">
+            <span class="close" onclick="document.getElementById('imageModal').style.display='none'">&times;</span>
+            <img class="modal-content" id="modalImage">
+        </div>
 
-<div class="image-scroll-box">
+        <div class="image-scroll-box">
 """
 
 # Build image grid HTML
